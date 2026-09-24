@@ -62,6 +62,9 @@ export const metadata: Metadata = {
       'ホーナイ三分類×ハーモニクス三分類の二軸から、あなたという星を観測する本格エニアグラム診断。',
     images: ['https://astralcity.vercel.app/ogp.png'],
   },
+  verification: {
+    google: 'b7ayC_ApkqZfpMCdnvnmZPQtpDMW8FATSpv0q1T2uV4',
+  },
   robots: {
     index: true,
     follow: true,
@@ -96,6 +99,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ja" className="dark">
       <head>
+        <meta
+          name="google-site-verification"
+          content="b7ayC_ApkqZfpMCdnvnmZPQtpDMW8FATSpv0q1T2uV4"
+        />
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
         <link
           rel="stylesheet"

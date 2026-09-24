@@ -20,6 +20,7 @@ import {
 import { sound } from '@/lib/audio';
 import EnneagramStarChart from './EnneagramStarChart';
 import ShareModal from './ShareModal';
+import ImageSaveModal from './ImageSaveModal';
 
 const GAS_WEBHOOK_URL =
   'https://script.google.com/macros/s/AKfycbw1wN9U_8uh5RbendNYB-qWG8FLA_R5NESeTrgM1OHDIxZxxxEqBHD6iMxzxsY38_Duwg/exec';
@@ -75,8 +76,11 @@ export default function ResultView({
   const [copiedLog, setCopiedLog] = useState(false);
   const [isExportingImage, setIsExportingImage] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isImageModalOpen, setIsImageModalOpen] = useState(false);
+  const [savedImageUrl, setSavedImageUrl] = useState<string | null>(null);
 
   const captureRef = useRef<HTMLDivElement>(null);
+  const exportRef = useRef<HTMLDivElement>(null);
   const hasAutoSentRef = useRef(false);
 
   // Derived enneagram type from 3x3 matrix
@@ -223,21 +227,45 @@ https://astralcity.vercel.app`;
     setTimeout(() => setCopiedLog(false), 2500);
   };
 
+  // モバイル・タッチ端末の判定
+  const isMobileDevice = () => {
+    if (typeof window === 'undefined') return false;
+    const ua = navigator.userAgent || '';
+    const isMobileUA = /iPhone|iPad|iPod|Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+    const hasTouch = typeof navigator.maxTouchPoints === 'number' && navigator.maxTouchPoints > 1;
+    const isNarrow = window.innerWidth < 768;
+    return isMobileUA || (hasTouch && isNarrow);
+  };
+
   // 画像保存 (html-to-image)
+  // PCでもスマホでも全く同じPCデスクトップ幅 (840px × Retina 2x) の美しいレイアウトでキャプチャ
   const handleSaveImage = async () => {
-    if (!captureRef.current) return;
+    // 常に840px幅でレンダリングされているエクスポート専用コンテナを優先キャプチャ
+    const targetElement = exportRef.current || captureRef.current;
+    if (!targetElement) return;
+
     try {
       sound.playClick();
       setIsExportingImage(true);
-      const dataUrl = await toPng(captureRef.current, {
+      const dataUrl = await toPng(targetElement, {
         cacheBust: true,
         backgroundColor: '#020617',
         pixelRatio: 2,
       });
-      const link = document.createElement('a');
-      link.download = `astral_city_observation_T${primaryType}_${wingData.wingLabel}.png`;
-      link.href = dataUrl;
-      link.click();
+
+      const fileName = `astral_city_observation_T${primaryType}_${wingData.wingLabel}.png`;
+
+      if (isMobileDevice()) {
+        // スマホの場合：長押し保存モーダルを表示（iOS Safari等での確実な保存対応）
+        setSavedImageUrl(dataUrl);
+        setIsImageModalOpen(true);
+      } else {
+        // PCの場合：通常のファイルダウンロード
+        const link = document.createElement('a');
+        link.download = fileName;
+        link.href = dataUrl;
+        link.click();
+      }
     } catch (err) {
       console.error('Failed to export image', err);
     } finally {
@@ -771,6 +799,375 @@ https://astralcity.vercel.app`;
         onClose={() => setIsShareModalOpen(false)}
         shareText={generateShareText()}
       />
+
+      {/* Mobile Image Long-press Save Modal */}
+      <ImageSaveModal
+        isOpen={isImageModalOpen}
+        onClose={() => setIsImageModalOpen(false)}
+        imageUrl={savedImageUrl}
+        fileName={`astral_city_observation_T${primaryType}_${wingData.wingLabel}.png`}
+      />
+
+      {/* ========================================================================= */}
+      {/* Off-screen Desktop Resolution Export Container (Fixed 840px width)       */}
+      {/* スマホから保存してもPCと寸分違わぬ美しいデスクトップ大画面サイズで生成 */}
+      {/* ========================================================================= */}
+      <div
+        ref={exportRef}
+        aria-hidden="true"
+        style={{
+          position: 'fixed',
+          left: '-9999px',
+          top: 0,
+          width: '840px',
+          pointerEvents: 'none',
+          zIndex: -100,
+        }}
+        className="p-6 bg-[#020617] text-slate-100 font-sans-cyber space-y-6"
+      >
+        {/* Header Branding */}
+        <div className="flex items-center justify-between border-b border-slate-800 pb-3 text-xs font-mono-code text-slate-400">
+          <div className="flex items-center gap-2">
+            <span className="text-cyan-400 font-bold">Niラボ</span>
+            <span className="text-slate-600">＞</span>
+            <span className="text-slate-200 font-bold">ASTRAL CITY 宇宙観測所</span>
+          </div>
+          <div className="text-[11px] text-slate-500">
+            LOG ID: #{10000 + primaryType * 1111} {'//'} https://astralcity.vercel.app
+          </div>
+        </div>
+
+        {/* Primary Type Main Card */}
+        <div className="relative bg-slate-950 border border-slate-800 rounded-3xl p-6 shadow-2xl overflow-hidden">
+          {/* Status Label */}
+          <div className="flex items-center justify-between gap-3 mb-5 relative z-10">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900 border border-cyan-500/30 text-cyan-300 text-xs font-mono-code">
+              <span className="w-2 h-2 rounded-full bg-cyan-400" />
+              ASTRAL ORBIT COMPLETED {'//'} 観測記録
+            </div>
+            <div className="text-xs font-mono-code text-slate-400">
+              天体座標: <span className="text-amber-300 font-bold">{primaryDetail.planetSymbol} {primaryDetail.planetName} ({fortuneData.location.name})</span>
+            </div>
+          </div>
+
+          {/* Planet & Type Title Header */}
+          <div className="flex items-center justify-between gap-6 mb-6 relative z-10">
+            <div className="flex items-center gap-4">
+              <div className="w-20 h-20 rounded-2xl bg-slate-900 border-2 border-cyan-400/50 flex items-center justify-center text-4xl shadow-xl flex-shrink-0">
+                {primaryDetail.planetSymbol}
+              </div>
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-xs font-mono-code font-bold text-cyan-400 uppercase tracking-widest">
+                    PRIMARY TYPE {primaryType}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-md bg-indigo-950 border border-indigo-500/40 text-indigo-300 font-mono-code font-bold text-xs">
+                    WING: {wingData.wingLabel}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-md bg-pink-950 border border-pink-500/40 text-pink-300 font-mono-code font-bold text-xs">
+                    TRI: {tritypeData.code}
+                  </span>
+                </div>
+                <h1 className="text-3xl font-extrabold text-slate-100 font-sans-cyber tracking-tight">
+                  {primaryDetail.title}
+                </h1>
+                <p className="text-xs text-slate-400 mt-0.5 font-sans-cyber">
+                  {primaryDetail.planetTitle} {'//'} {primaryDetail.starCoordinate}
+                </p>
+              </div>
+            </div>
+
+            {/* Triad Badges */}
+            <div className="flex flex-col gap-2 min-w-[210px]">
+              <div
+                className="px-3.5 py-1.5 rounded-xl border flex items-center justify-between text-xs"
+                style={{ backgroundColor: hrInfo.bgGlow, borderColor: hrInfo.color }}
+              >
+                <span className="text-[10px] font-mono-code text-slate-400 uppercase">対人スタンス</span>
+                <span className="font-bold font-sans-cyber" style={{ color: hrInfo.color }}>
+                  {hrInfo.name} ({hrInfo.starName})
+                </span>
+              </div>
+              <div
+                className="px-3.5 py-1.5 rounded-xl border flex items-center justify-between text-xs"
+                style={{ backgroundColor: hmInfo.bgGlow, borderColor: hmInfo.color }}
+              >
+                <span className="text-[10px] font-mono-code text-slate-400 uppercase">対処戦略</span>
+                <span className="font-bold font-sans-cyber" style={{ color: hmInfo.color }}>
+                  {hmInfo.name} ({hmInfo.starName})
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Explanation if Primary Type != Matrix Intersection Type */}
+          {!isMatrixMatch && (
+            <div className="p-4 rounded-2xl bg-amber-950/30 border border-amber-500/40 text-xs text-amber-100 font-sans-cyber leading-relaxed mb-5">
+              <p className="font-semibold text-amber-200">
+                「{hrInfo.name} × {hmInfo.name}」の傾向が強く観測されました。
+              </p>
+              <p className="mt-1 text-slate-100 font-medium">
+                一方、総合判定では <strong className="text-cyan-300 font-bold font-mono-code">タイプ{primaryType}</strong>。
+              </p>
+              <p className="mt-1 text-slate-300 text-[11px] leading-relaxed">
+                同じタイプでも、場面や問い方によって異なる側面が観測されることがあります。
+              </p>
+            </div>
+          )}
+
+          {/* Core Essence Text */}
+          <div className="p-4 rounded-2xl bg-slate-900/80 border border-slate-800 text-xs text-slate-200 leading-relaxed font-sans-cyber mb-5">
+            <span className="text-cyan-400 font-bold block mb-1 font-mono-code text-xs">
+              {'// 魂の本質 (CORE ESSENCE)'}
+            </span>
+            {primaryDetail.essence}
+          </div>
+
+          {/* Grid: Strengths & Worldview (2 columns) */}
+          <div className="grid grid-cols-2 gap-4 mb-5">
+            <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800/80">
+              <div className="text-xs font-mono-code text-emerald-400 font-bold mb-1.5 flex items-center gap-1.5">
+                <span>✦</span>
+                <span>天賦の引力・強み (Strengths)</span>
+              </div>
+              <ul className="space-y-1 text-xs text-slate-300 font-sans-cyber">
+                {primaryDetail.strengths.slice(0, 3).map((str, i) => (
+                  <li key={i} className="flex items-start gap-1.5">
+                    <span className="text-emerald-400 mt-0.5">•</span>
+                    <span>{str}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800/80">
+              <div className="text-xs font-mono-code text-rose-400 font-bold mb-1.5 flex items-center gap-1.5">
+                <span>✦</span>
+                <span>盲点・過剰な防衛 (Blindspots)</span>
+              </div>
+              <ul className="space-y-1 text-xs text-slate-300 font-sans-cyber">
+                {primaryDetail.blindspots.slice(0, 3).map((bld, i) => (
+                  <li key={i} className="flex items-start gap-1.5">
+                    <span className="text-rose-400 mt-0.5">•</span>
+                    <span>{bld}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
+          {/* Darling's Dialogue Card */}
+          <div className="p-3.5 rounded-2xl bg-purple-950/40 border border-pink-500/30 flex items-start gap-3">
+            <div className="w-9 h-9 rounded-xl bg-pink-950/80 border border-pink-500/40 flex items-center justify-center text-lg flex-shrink-0">
+              🥺
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-0.5">
+                <span className="text-xs font-bold text-pink-300">ダーリンちゃん</span>
+                <span className="text-[10px] font-mono-code text-pink-400/70">ILI 5w4 / 観測コメント</span>
+              </div>
+              <p className="text-xs text-pink-100 font-sans-cyber leading-relaxed">
+                {primaryDetail.darlingComment}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* SECTION: Visualizations (Star Chart & Enneagram Bar Chart side by side) */}
+        <div className="grid grid-cols-12 gap-5">
+          {/* Star Chart (5 cols) */}
+          <div className="col-span-5 bg-slate-950 border border-slate-800 rounded-3xl p-5 flex flex-col items-center justify-between">
+            <div className="w-full text-left mb-1">
+              <div className="text-[11px] font-mono-code text-cyan-400 font-bold">
+                ✦ CONSTELLATION GRAPH
+              </div>
+              <h2 className="text-sm font-bold text-slate-200 font-sans-cyber">
+                エニアグラム星間チャート
+              </h2>
+            </div>
+
+            <div className="py-2 scale-95">
+              <EnneagramStarChart
+                scores={enneagramScores}
+                primaryType={primaryType}
+                matrixType={matrixType}
+              />
+            </div>
+
+            <div className="w-full text-[10px] font-mono-code text-slate-400 text-center pt-2 border-t border-slate-800">
+              TRI-TYPE: {tritypeData.code} (本能:T{tritypeData.gut.type} / 感情:T{tritypeData.heart.type} / 思考:T{tritypeData.head.type})
+            </div>
+          </div>
+
+          {/* Bar Chart (7 cols) */}
+          <div className="col-span-7 bg-slate-950 border border-slate-800 rounded-3xl p-5">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <div className="text-[11px] font-mono-code text-pink-400 font-bold">
+                  ✦ ENNEAGRAM STRENGTH BAR
+                </div>
+                <h2 className="text-sm font-bold text-slate-200 font-sans-cyber">
+                  9タイプの引力強度
+                </h2>
+              </div>
+              <span className="text-[10px] font-mono-code text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
+                MAX: {maxScore} pt
+              </span>
+            </div>
+
+            <div className="space-y-2">
+              {([1, 2, 3, 4, 5, 6, 7, 8, 9] as EnneagramType[]).map((t) => {
+                const score = enneagramScores[t] || 0;
+                const percent = Math.round((score / maxScore) * 100);
+                const isPrimary = t === primaryType;
+                const isMatrix = t === matrixType && !isPrimary;
+                const isTop3 = sortedTypes.slice(0, 3).includes(t);
+                const detail = TYPE_DETAILS[t];
+
+                return (
+                  <div key={t} className="space-y-0.5">
+                    <div className="flex items-center justify-between text-xs font-mono-code">
+                      <div className="flex items-center gap-1.5">
+                        <span
+                          className={`w-4 h-4 rounded flex items-center justify-center text-[9px] font-bold ${
+                            isPrimary
+                              ? 'bg-cyan-400 text-slate-950'
+                              : isMatrix
+                              ? 'bg-amber-400 text-slate-950'
+                              : isTop3
+                              ? 'bg-rose-500 text-white'
+                              : 'bg-slate-800 text-slate-400'
+                          }`}
+                        >
+                          {t}
+                        </span>
+                        <span className={`text-xs ${isPrimary ? 'text-cyan-300 font-bold' : isMatrix ? 'text-amber-300 font-bold' : 'text-slate-300'}`}>
+                          {detail.title}
+                        </span>
+                        {isPrimary && (
+                          <span className="text-[8px] px-1 py-0.2 rounded bg-cyan-950 text-cyan-300 border border-cyan-500/40">
+                            PRIMARY
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 text-[10px]">
+                        <span className="text-slate-400">{score} pt</span>
+                        <span className="text-slate-500 w-7 text-right">{percent}%</span>
+                      </div>
+                    </div>
+                    <div className="w-full h-1.5 rounded-full bg-slate-900 overflow-hidden border border-slate-800">
+                      <div
+                        style={{ width: `${percent}%` }}
+                        className={`h-full rounded-full ${
+                          isPrimary
+                            ? 'bg-gradient-to-r from-cyan-400 to-sky-400'
+                            : isMatrix
+                            ? 'bg-gradient-to-r from-amber-400 to-orange-400'
+                            : isTop3
+                            ? 'bg-gradient-to-r from-rose-500 to-pink-500'
+                            : 'bg-slate-700'
+                        }`}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* SECTION: Hornevian × Harmonic Intersection Matrix Table */}
+        <div className="bg-slate-950 border border-slate-800 rounded-3xl p-5">
+          <div className="text-[11px] font-mono-code text-cyan-400 font-bold mb-0.5">
+            ✦ HORNEVIAN × HARMONIC MATRIX
+          </div>
+          <h2 className="text-sm font-bold text-slate-200 font-sans-cyber mb-3">
+            あなたの現在地：ホーナイ × ハーモニクス交差点
+          </h2>
+
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr>
+                <th className="p-2 text-[10px] font-mono-code text-slate-500 border border-slate-800 bg-slate-900/60 w-1/4">
+                  対人 ＼ 対処
+                </th>
+                {harmonicKeys.map((hmKey) => {
+                  const hm = HARMONIC_DATA[hmKey];
+                  return (
+                    <th
+                      key={hmKey}
+                      className="p-2 text-xs font-mono-code font-bold border border-slate-800 bg-slate-900/80 w-1/4 text-center"
+                      style={{ color: hm.color }}
+                    >
+                      {hm.name}
+                      <div className="text-[9px] text-slate-500 font-normal">{hm.strategy}</div>
+                    </th>
+                  );
+                })}
+              </tr>
+            </thead>
+            <tbody>
+              {hornevianKeys.map((hrKey) => {
+                const hr = HORNEVIAN_DATA[hrKey];
+                return (
+                  <tr key={hrKey}>
+                    <td
+                      className="p-2 text-xs font-mono-code font-bold border border-slate-800 bg-slate-900/60"
+                      style={{ color: hr.color }}
+                    >
+                      {hr.name}
+                      <div className="text-[9px] text-slate-500 font-normal">{hr.stance}</div>
+                    </td>
+
+                    {harmonicKeys.map((hmKey) => {
+                      const targetType = MATRIX_TYPE_MAP[hrKey][hmKey];
+                      const isCurrentPosition = hrKey === hornevian && hmKey === harmonic;
+                      const isUserPrimaryType = targetType === primaryType;
+                      const detail = TYPE_DETAILS[targetType];
+
+                      return (
+                        <td
+                          key={hmKey}
+                          className={`p-2 border border-slate-800 text-center ${
+                            isCurrentPosition
+                              ? 'bg-cyan-950/80 border-cyan-400'
+                              : isUserPrimaryType
+                              ? 'bg-indigo-950/50 border-indigo-500/60'
+                              : 'bg-slate-950/50'
+                          }`}
+                        >
+                          {isCurrentPosition && (
+                            <div className="text-[8px] font-mono-code font-bold text-cyan-300 mb-0.5">
+                              🌟 YOUR POSITION
+                            </div>
+                          )}
+                          {isUserPrimaryType && !isCurrentPosition && (
+                            <div className="text-[8px] font-mono-code font-bold text-indigo-300 mb-0.5">
+                              ✦ PRIMARY STAR
+                            </div>
+                          )}
+                          <div className="text-xs font-bold text-slate-100 flex items-center justify-center gap-1">
+                            <span className="text-amber-300">{detail.planetSymbol}</span>
+                            <span>TYPE {targetType}</span>
+                          </div>
+                          <div className="text-[10px] text-slate-400 mt-0.5">
+                            {detail.title}
+                          </div>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Footer info in image */}
+        <div className="pt-2 text-center text-[10px] font-mono-code text-slate-500 border-t border-slate-800/80">
+          ASTRAL CITY — ホーナイ×ハーモニクス エニアグラム宇宙観測所 ✦ https://astralcity.vercel.app
+        </div>
+      </div>
     </div>
   );
 }

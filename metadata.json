@@ -1,0 +1,6 @@
+{
+  "name": "ASTRAL CITY | ホーナイ×ハーモニクス エニアグラム宇宙観測所【9タイプ・ウィング・トライタイプ診断】",
+  "description": "【無料】エニアグラムのホーナイ三分類（対人姿勢）×ハーモニクス三分類（問題対処）の3×3マトリクスから、あなたの深層心理を精密観測。全9タイプの引力強度、ウィング（Wing）、トライタイプ（Tritype）を幾何学チャートで照らし出します。",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

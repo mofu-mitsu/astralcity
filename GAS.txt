@@ -1,0 +1,129 @@
+/**
+ * ==============================================================================
+ * ASTRAL CITY - Google Sheets 観測ログ自動記録スクリプト (Google Apps Script)
+ * ==============================================================================
+ * 
+ * 【更新内容】
+ * - 自認タイプ (selfIdentifiedType)
+ * - 行動ログ全文 (actionLogText)
+ * - 記述回答 (userFinalText)
+ * - 結果全項目 (主星, ウィング, トライタイプ, ホーナイ, ハーモニクス, マトリクス, スコア1-9, チェック数等)
+ * 
+ * 【セットアップ手順】
+ * 1. Google スプレッドシートのメニュー「拡張機能」>「Apps Script」を開く
+ * 2. エディタにこのコードをすべて貼り付けて保存
+ * 3. 初回のみプルダウンで「initSheet」を選択し「実行」を押す（ヘッダー行が生成されます）
+ * 4. 右上の「デプロイ」>「デプロイの管理」または「新しいデプロイ」
+ *    - 種類: ウェブアプリ
+ *    - 次のユーザーとして実行: 自分
+ *    - アクセスできるユーザー: 全員 (Anyone)
+ *    - 新しいバージョンでデプロイして完了！
+ */
+
+// 1. 初回ヘッダー行作成用関数
+function initSheet() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getActiveSheet();
+  
+  const headers = [
+    '観測日時',
+    '観測ID',
+    '自認タイプ',
+    '主星タイプ',
+    '星の名称',
+    'ウィング',
+    'トライタイプ',
+    'ホーナイ分類',
+    'ハーモニクス分類',
+    'マトリクス交差点タイプ',
+    '主星一致判定',
+    'T1点',
+    'T2点',
+    'T3点',
+    'T4点',
+    'T5点',
+    'T6点',
+    'T7点',
+    'T8点',
+    'T9点',
+    'チェック数合計',
+    '芋虫粉砕(SLE)',
+    '深層記述テキスト',
+    '深層ボーナスタイプ',
+    '行動ログ全文'
+  ];
+  
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(headers);
+    const headerRange = sheet.getRange(1, 1, 1, headers.length);
+    headerRange.setBackground('#0f172a');
+    headerRange.setFontColor('#38bdf8');
+    headerRange.setFontWeight('bold');
+    sheet.setFrozenRows(1);
+  }
+}
+
+// 2. Webhook受信エンドポイント (POST)
+function doPost(e) {
+  try {
+    const contents = e.postData.contents;
+    const data = JSON.parse(contents);
+    
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getActiveSheet();
+    
+    // シートが空ならヘッダーを自動生成
+    if (sheet.getLastRow() === 0) {
+      initSheet();
+    }
+    
+    const now = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/MM/dd HH:mm:ss');
+    const scores = data.scores || {};
+    
+    const row = [
+      now,
+      data.logId || '',
+      data.selfIdentifiedType || '未入力',
+      data.primaryType ? 'TYPE ' + data.primaryType : '',
+      data.primaryTypeName || '',
+      data.wingLabel || '',
+      data.tritypeCode || '',
+      data.hornevian || '',
+      data.harmonic || '',
+      data.matrixType ? 'TYPE ' + data.matrixType : '',
+      data.isMatrixMatch ? '一致' : '別タイプ観測',
+      scores[1] || 0,
+      scores[2] || 0,
+      scores[3] || 0,
+      scores[4] || 0,
+      scores[5] || 0,
+      scores[6] || 0,
+      scores[7] || 0,
+      scores[8] || 0,
+      scores[9] || 0,
+      data.totalChecked || 0,
+      data.caterpillarCrushed ? '粉砕 (+3pt)' : '未粉砕',
+      data.userFinalText || '',
+      data.bonusType ? 'TYPE ' + data.bonusType : 'なし',
+      data.actionLogText || ''
+    ];
+    
+    sheet.appendRow(row);
+    
+    return ContentService
+      .createTextOutput(JSON.stringify({ status: 'success', message: 'Logged successfully' }))
+      .setMimeType(ContentService.MimeType.JSON);
+      
+  } catch (err) {
+    return ContentService
+      .createTextOutput(JSON.stringify({ status: 'error', error: err.toString() }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+// 動作確認用 GET エンドポイント
+function doGet() {
+  return ContentService
+    .createTextOutput('ASTRAL CITY Webhook endpoint is active.')
+    .setMimeType(ContentService.MimeType.TEXT);
+}

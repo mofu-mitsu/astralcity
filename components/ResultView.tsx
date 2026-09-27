@@ -241,7 +241,9 @@ https://astralcity.vercel.app`;
   // PCでもスマホでも全く同じPCデスクトップ幅 (840px) の美しいレイアウトでキャプチャ
   const handleSaveImage = async () => {
     // 常に840px幅でレンダリングされているエクスポート専用コンテナを優先キャプチャ
-    const targetElement = exportRef.current || captureRef.current;
+    // 保存専用の840pxレイアウトだけを必ずキャプチャする。
+    // captureRefへのフォールバックは、スマホでPCページ本体を拾ってしまう原因になるため使わない。
+    const targetElement = exportRef.current;
     if (!targetElement) return;
 
     try {
@@ -276,6 +278,7 @@ https://astralcity.vercel.app`;
           top: '0px',
           zIndex: '0',
           margin: '0',
+          transform: 'none',
         },
       });
 
@@ -843,13 +846,14 @@ https://astralcity.vercel.app`;
         aria-hidden="true"
         style={{
           position: 'absolute',
-          // html-to-imageがfixed要素をviewport基準で解釈してしまうのを避ける。
-          // キャプチャ時にもstyleオプションでrelativeへ上書きする。
+          // 通常ページからは十分に画面外へ逃がす。
+          // html-to-imageのクローン側では transform を none に戻して原点から描画する。
           left: 0,
           top: 0,
+          transform: 'translateX(-10000px)',
           width: '840px',
           pointerEvents: 'none',
-          zIndex: -100,
+          zIndex: 1000,
         }}
         className="p-6 bg-[#020617] text-slate-100 font-sans-cyber space-y-6"
       >

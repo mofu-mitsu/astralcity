@@ -238,7 +238,7 @@ https://astralcity.vercel.app`;
   };
 
   // 画像保存 (html-to-image)
-  // PCでもスマホでも全く同じPCデスクトップ幅 (840px × Retina 2x) の美しいレイアウトでキャプチャ
+  // PCでもスマホでも全く同じPCデスクトップ幅 (840px) の美しいレイアウトでキャプチャ
   const handleSaveImage = async () => {
     // 常に840px幅でレンダリングされているエクスポート専用コンテナを優先キャプチャ
     const targetElement = exportRef.current || captureRef.current;

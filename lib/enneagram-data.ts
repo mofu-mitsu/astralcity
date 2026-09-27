@@ -1031,7 +1031,35 @@ export function calculateTritype(
     .sort((a, b) => b.score - a.score);
 
   const typesInOrder = [primary, otherCenters[0].type, otherCenters[1].type];
-  const code = typesInOrder.join('');
+
+  // Safety guard: a valid tritype must contain exactly one type from
+  // each center (Gut 8/9/1, Heart 2/3/4, Head 5/6/7).
+  // This prevents impossible values such as 441 / 449 from ever
+  // reaching the result view or the spreadsheet log.
+  const centerOf = (type: EnneagramType): 'gut' | 'heart' | 'head' => {
+    if (gutTypes.includes(type)) return 'gut';
+    if (heartTypes.includes(type)) return 'heart';
+    return 'head';
+  };
+
+  const hasAllCenters =
+    new Set(typesInOrder.map(centerOf)).size === 3 &&
+    new Set(typesInOrder).size === 3;
+
+  const safeTypesInOrder = hasAllCenters
+    ? typesInOrder
+    : [primary, gutBest.type, heartBest.type, headBest.type]
+        .filter((type, index, arr) => arr.indexOf(type) === index)
+        .slice(0, 3);
+
+  // The fallback above is center-complete by construction. Keep the
+  // primary type first, then order the remaining two by their scores.
+  const safeOtherCenters = safeTypesInOrder
+    .filter((type) => type !== primary)
+    .sort((a, b) => (scores[b] || 0) - (scores[a] || 0));
+
+  const finalTypesInOrder = [primary, ...safeOtherCenters];
+  const code = finalTypesInOrder.join('');
 
   return {
     code,
@@ -1039,7 +1067,7 @@ export function calculateTritype(
     gut: gutBest,
     heart: heartBest,
     head: headBest,
-    typesInOrder,
+    typesInOrder: finalTypesInOrder,
   };
 }
 

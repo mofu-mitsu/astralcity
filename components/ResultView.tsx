@@ -247,10 +247,27 @@ https://astralcity.vercel.app`;
     try {
       sound.playClick();
       setIsExportingImage(true);
+      // iOS Safariでは html-to-image のSVG→Canvas変換がタイミング依存になることがあるため、
+      // フォントの読み込みとブラウザのペイント完了を待ってからキャプチャする。
+      if (typeof document !== 'undefined' && 'fonts' in document) {
+        await document.fonts.ready;
+      }
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      await new Promise<void>((resolve) => setTimeout(resolve, 300));
+
+      const exportWidth = 840;
+      const exportHeight = Math.ceil(targetElement.getBoundingClientRect().height);
+
       const dataUrl = await toPng(targetElement, {
         cacheBust: true,
         backgroundColor: '#020617',
-        pixelRatio: 2,
+        // PC表示時の840px幅を、そのまま保存画像の840px幅にする。
+        // pixelRatio: 2 だとスマホでは1680px幅になり、iOSのCanvas負荷も大きくなる。
+        pixelRatio: 1,
+        width: exportWidth,
+        height: exportHeight,
+        canvasWidth: exportWidth,
+        canvasHeight: exportHeight,
       });
 
       const fileName = `astral_city_observation_T${primaryType}_${wingData.wingLabel}.png`;
@@ -817,7 +834,9 @@ https://astralcity.vercel.app`;
         aria-hidden="true"
         style={{
           position: 'fixed',
-          left: '-9999px',
+          // 画面外(-9999px)ではなくviewport内に置き、負のz-indexで背面へ。
+          // iOS Safariのオフスクリーン描画問題を避ける。
+          left: 0,
           top: 0,
           width: '840px',
           pointerEvents: 'none',

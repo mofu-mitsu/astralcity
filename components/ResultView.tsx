@@ -268,6 +268,15 @@ https://astralcity.vercel.app`;
         height: exportHeight,
         canvasWidth: exportWidth,
         canvasHeight: exportHeight,
+        // fixed要素の座標をiOS Safariがviewport基準で解釈する問題を避け、
+        // html-to-image側のクローンだけ通常のフロー要素として描画する。
+        style: {
+          position: 'relative',
+          left: '0px',
+          top: '0px',
+          zIndex: '0',
+          margin: '0',
+        },
       });
 
       const fileName = `astral_city_observation_T${primaryType}_${wingData.wingLabel}.png`;
@@ -833,9 +842,9 @@ https://astralcity.vercel.app`;
         ref={exportRef}
         aria-hidden="true"
         style={{
-          position: 'fixed',
-          // 画面外(-9999px)ではなくviewport内に置き、負のz-indexで背面へ。
-          // iOS Safariのオフスクリーン描画問題を避ける。
+          position: 'absolute',
+          // html-to-imageがfixed要素をviewport基準で解釈してしまうのを避ける。
+          // キャプチャ時にもstyleオプションでrelativeへ上書きする。
           left: 0,
           top: 0,
           width: '840px',

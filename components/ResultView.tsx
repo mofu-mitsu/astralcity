@@ -162,7 +162,7 @@ export default function ResultView({
     tritypeGut: tritypeData.gut.type,
     tritypeHeart: tritypeData.heart.type,
     tritypeHead: tritypeData.head.type,
-    tritypeVersion: 'center-v2',
+    tritypeVersion: 'center-v3',
     hornevian: hrInfo.name,
     harmonic: hmInfo.name,
     matrixType,

@@ -87,9 +87,13 @@ export default function ResultView({
   const matrixType = MATRIX_TYPE_MAP[hornevian][harmonic];
 
   // Also check top scored type from all sources
-  const sortedTypes = (Object.keys(enneagramScores) as unknown as EnneagramType[]).sort(
-    (a, b) => (enneagramScores[b] || 0) - (enneagramScores[a] || 0)
-  );
+  // Object.keys() returns strings at runtime. Convert them to real numbers
+  // before passing the primary type into Enneagram logic (especially tritype).
+  // Without Number(), Type 1 arrives as "1", which centerOf() cannot match
+  // against numeric [8, 9, 1], causing impossible results such as 113 / 449.
+  const sortedTypes = (Object.keys(enneagramScores) as string[])
+    .map((key) => Number(key) as EnneagramType)
+    .sort((a, b) => (enneagramScores[b] || 0) - (enneagramScores[a] || 0));
   // Primary type is top score (or fallback to matrix type)
   const primaryType = sortedTypes[0] || matrixType;
   const primaryDetail = TYPE_DETAILS[primaryType];

@@ -999,75 +999,73 @@ export function calculateTritype(
   primary: EnneagramType,
   scores: Record<EnneagramType, number>
 ): TritypeResult {
-  const gutTypes: EnneagramType[] = [8, 9, 1];
-  const heartTypes: EnneagramType[] = [2, 3, 4];
-  const headTypes: EnneagramType[] = [5, 6, 7];
-
-  const getBestInCenter = (types: EnneagramType[]) => {
-    let best = types[0];
-    let maxS = scores[best] || 0;
-    for (const t of types) {
-      if ((scores[t] || 0) > maxS) {
-        maxS = scores[t] || 0;
-        best = t;
-      }
-    }
-    return { type: best, score: maxS };
+  // A tritype is ALWAYS one type from each center:
+  // Gut = 8/9/1, Heart = 2/3/4, Head = 5/6/7.
+  const centers: Record<'gut' | 'heart' | 'head', EnneagramType[]> = {
+    gut: [8, 9, 1],
+    heart: [2, 3, 4],
+    head: [5, 6, 7],
   };
 
-  const gutBest = getBestInCenter(gutTypes);
-  const heartBest = getBestInCenter(heartTypes);
-  const headBest = getBestInCenter(headTypes);
+  const best = (types: EnneagramType[]) =>
+    types.reduce((winner, type) =>
+      (scores[type] || 0) > (scores[winner] || 0) ? type : winner
+    , types[0]);
 
-  // Determine which center the primary belongs to
-  let centerOfPrimary: 'gut' | 'heart' | 'head';
-  if (gutTypes.includes(primary)) centerOfPrimary = 'gut';
-  else if (heartTypes.includes(primary)) centerOfPrimary = 'heart';
-  else centerOfPrimary = 'head';
-
-  const otherCenters = (['gut', 'heart', 'head'] as const)
-    .filter((c) => c !== centerOfPrimary)
-    .map((c) => (c === 'gut' ? gutBest : c === 'heart' ? heartBest : headBest))
-    .sort((a, b) => b.score - a.score);
-
-  const typesInOrder = [primary, otherCenters[0].type, otherCenters[1].type];
-
-  // Safety guard: a valid tritype must contain exactly one type from
-  // each center (Gut 8/9/1, Heart 2/3/4, Head 5/6/7).
-  // This prevents impossible values such as 441 / 449 from ever
-  // reaching the result view or the spreadsheet log.
   const centerOf = (type: EnneagramType): 'gut' | 'heart' | 'head' => {
-    if (gutTypes.includes(type)) return 'gut';
-    if (heartTypes.includes(type)) return 'heart';
+    if (centers.gut.includes(type)) return 'gut';
+    if (centers.heart.includes(type)) return 'heart';
     return 'head';
   };
 
-  const hasAllCenters =
-    new Set(typesInOrder.map(centerOf)).size === 3 &&
-    new Set(typesInOrder).size === 3;
+  const primaryCenter = centerOf(primary);
+  const otherCenterNames = (['gut', 'heart', 'head'] as const)
+    .filter((center) => center !== primaryCenter);
 
-  const safeTypesInOrder = hasAllCenters
-    ? typesInOrder
-    : [primary, gutBest.type, heartBest.type, headBest.type]
-        .filter((type, index, arr) => arr.indexOf(type) === index)
-        .slice(0, 3);
+  // Pick ONLY from the two centers that are different from Primary.
+  // This makes impossible values such as 113 / 441 / 449 structurally impossible.
+  const otherTypes = otherCenterNames
+    .map((center) => ({
+      type: best(centers[center]),
+      score: scores[best(centers[center])] || 0,
+    }))
+    .sort((a, b) => b.score - a.score);
 
-  // The fallback above is center-complete by construction. Keep the
-  // primary type first, then order the remaining two by their scores.
-  const safeOtherCenters = safeTypesInOrder
-    .filter((type) => type !== primary)
-    .sort((a, b) => (scores[b] || 0) - (scores[a] || 0));
+  const typesInOrder: EnneagramType[] = [
+    primary,
+    otherTypes[0].type,
+    otherTypes[1].type,
+  ];
 
-  const finalTypesInOrder = [primary, ...safeOtherCenters];
-  const code = finalTypesInOrder.join('');
+  const usedCenters = new Set(typesInOrder.map(centerOf));
+  const uniqueTypes = new Set(typesInOrder);
+
+  if (usedCenters.size !== 3 || uniqueTypes.size !== 3) {
+    console.error('[ASTRAL CITY] Invalid tritype generated:', {
+      primary,
+      typesInOrder,
+      scores,
+    });
+    // Deterministic hard fallback: Primary + the best type from each
+    // of the two remaining centers.
+    const fallback = otherCenterNames.map((center) => best(centers[center]));
+    return {
+      code: [primary, ...fallback].join(''),
+      primary,
+      gut: { type: best(centers.gut), score: scores[best(centers.gut)] || 0 },
+      heart: { type: best(centers.heart), score: scores[best(centers.heart)] || 0 },
+      head: { type: best(centers.head), score: scores[best(centers.head)] || 0 },
+      typesInOrder: [primary, ...fallback],
+    };
+  }
 
   return {
-    code,
+    code: typesInOrder.join(''),
     primary,
-    gut: gutBest,
-    heart: heartBest,
-    head: headBest,
-    typesInOrder: finalTypesInOrder,
+    gut: { type: best(centers.gut), score: scores[best(centers.gut)] || 0 },
+    heart: { type: best(centers.heart), score: scores[best(centers.heart)] || 0 },
+    head: { type: best(centers.head), score: scores[best(centers.head)] || 0 },
+    typesInOrder,
   };
 }
 
